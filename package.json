@@ -21,7 +21,7 @@
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "typescript": "latest",
+    "typescript": "^5.8.3",
     "vite": "latest"
   }
 }
