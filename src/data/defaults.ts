@@ -9,6 +9,7 @@ const id = () => crypto.randomUUID();
 
 export const defaultProducts: Product[] = [
   { id: id(), name: 'Тушка индейки (потрошеная)', price: '17,5', unit: '1 кг', category: 'raw', stock: 12, lowStockAt: 3, active: true },
+  { id: id(), name: 'Тушка индейки (разделанная)', price: '20', unit: '1 кг', category: 'raw', stock: 12, lowStockAt: 3, active: true },
   { id: id(), name: 'Грудка филе', price: '32', unit: '1 кг', category: 'raw', stock: 9, lowStockAt: 3, active: true },
   { id: id(), name: 'Бедро филе / бедро на кости', price: '32 / 25,5', unit: '1 кг', category: 'raw', stock: 7, lowStockAt: 3, active: true },
   { id: id(), name: 'Голень на кости', price: '16,5', unit: '1 кг', category: 'raw', stock: 8, lowStockAt: 3, active: true },
