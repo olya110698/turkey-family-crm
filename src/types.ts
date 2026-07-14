@@ -34,10 +34,28 @@ export interface Promotion {
   active: boolean;
 }
 
+export interface CanvasElementSettings {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface GeneratorSettings {
   plateColor: string;
   textStyle: 'italic' | 'normal';
   fontScale: number;
-  listY: number;
   backgroundImage: string;
+  title: CanvasElementSettings;
+  list: CanvasElementSettings;
+  cities: CanvasElementSettings;
+  phone: CanvasElementSettings;
+}
+
+export interface CrmState {
+  products: Product[];
+  delivery: DeliverySettings;
+  history: PriceHistoryEntry[];
+  promotions: Promotion[];
+  generatorSettings: GeneratorSettings;
 }

@@ -1,7 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image as KonvaImage, Layer, Rect, Stage, Text } from 'react-konva';
+import {
+  Circle,
+  Group,
+  Image as KonvaImage,
+  Layer,
+  Line,
+  Rect,
+  Stage,
+  Text,
+  Transformer,
+} from 'react-konva';
 import useImage from 'use-image';
-import type { DeliverySettings, GeneratorSettings, Product } from '../types';
+import type {
+  CanvasElementSettings,
+  DeliverySettings,
+  GeneratorSettings,
+  Product,
+} from '../types';
 
 interface Props {
   products: Product[];
@@ -9,21 +24,30 @@ interface Props {
   category: 'raw' | 'ready';
   stageRef: React.RefObject<any>;
   settings: GeneratorSettings;
+  onSettingsChange: (settings: GeneratorSettings) => void;
 }
+
+type ElementKey = 'title' | 'list' | 'cities' | 'phone';
 
 const WIDTH = 1080;
 const HEIGHT = 1440;
-const CONTENT_X = 70;
-const CONTENT_WIDTH = 875;
 
 function estimateLines(text: string, fontSize: number, width: number) {
-  const approximateCharWidth = fontSize * 0.54;
-  const charsPerLine = Math.max(12, Math.floor(width / approximateCharWidth));
+  const charsPerLine = Math.max(
+    10,
+    Math.floor(width / (fontSize * 0.52)),
+  );
+
   const words = text.split(/\s+/);
+
   let lines = 1;
   let current = 0;
+
   for (const word of words) {
-    const next = current ? current + 1 + word.length : word.length;
+    const next = current
+      ? current + word.length + 1
+      : word.length;
+
     if (next > charsPerLine) {
       lines += 1;
       current = word.length;
@@ -31,80 +55,485 @@ function estimateLines(text: string, fontSize: number, width: number) {
       current = next;
     }
   }
+
   return lines;
 }
 
-export function GeneratorCanvas({ products, delivery, category, stageRef, settings }: Props) {
-  const [image] = useImage(settings.backgroundImage || '/assets/turkey-bg.jpg', 'anonymous');
-  const active = useMemo(() => products.filter((p) => p.category === category && p.active), [products, category]);
-  const title = category === 'raw' ? 'Сырая продукция (цены за 1 кг):' : 'Готовая продукция:';
-  const baseFontSize = Math.round(40 * settings.fontScale / 100);
-  const titleFontSize = Math.round(46 * settings.fontScale / 100);
-  const lineGap = Math.max(10, Math.round(14 * settings.fontScale / 100));
-  const fontStyle = settings.textStyle === 'italic' ? 'bold italic' : 'bold';
+function Selection({
+  selected,
+  nodeRef,
+}: {
+  selected: boolean;
+  nodeRef: React.RefObject<any>;
+}) {
+  const transformer = useRef<any>(null);
+
+  useEffect(() => {
+    if (
+      selected
+      && transformer.current
+      && nodeRef.current
+    ) {
+      transformer.current.nodes([nodeRef.current]);
+      transformer.current.getLayer()?.batchDraw();
+    }
+  }, [selected, nodeRef]);
+
+  if (!selected) {
+    return null;
+  }
+
+  return (
+    <Transformer
+      ref={transformer}
+      rotateEnabled={false}
+      flipEnabled={false}
+      boundBoxFunc={(oldBox: any, box: any) => {
+        if (box.width < 120 || box.height < 50) {
+          return oldBox;
+        }
+
+        return box;
+      }}
+    />
+  );
+}
+
+export function GeneratorCanvas({
+  products,
+  delivery,
+  category,
+  stageRef,
+  settings,
+  onSettingsChange,
+}: Props) {
+  const [image] = useImage(
+    settings.backgroundImage || '/assets/turkey-bg.jpg',
+    'anonymous',
+  );
+
   const [scale, setScale] = useState(0.52);
+  const [selected, setSelected] = useState<ElementKey | null>(null);
+
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const refs = {
+    title: useRef<any>(null),
+    list: useRef<any>(null),
+    cities: useRef<any>(null),
+    phone: useRef<any>(null),
+  };
+
+  const active = useMemo(
+    () => products.filter(
+      (product) => (
+        product.category === category
+        && product.active
+      ),
+    ),
+    [products, category],
+  );
+
+  const titleText = category === 'raw'
+    ? 'Сырая продукция:'
+    : 'Готовая продукция:';
+
+  const fontSize = Math.round(
+    37 * settings.fontScale / 100,
+  );
+
+  const titleFontSize = Math.round(
+    44 * settings.fontScale / 100,
+  );
+
+  const fontStyle = settings.textStyle === 'italic'
+    ? 'bold italic'
+    : 'bold';
+
   const rows = useMemo(() => {
-    let y = settings.listY + 72;
+    let y = 72;
+
     return active.map((item) => {
-      const text = `📍 ${item.name} — ${item.price} руб. (${item.unit})`;
-      const lines = estimateLines(text, baseFontSize, CONTENT_WIDTH);
-      const height = Math.ceil(lines * baseFontSize * 1.16);
-      const row = { item, text, y, height };
-      y += height + lineGap;
+      const text = `${item.name} — ${item.price} руб. (${item.unit})`;
+
+      const lines = estimateLines(
+        text,
+        fontSize,
+        settings.list.width - 94,
+      );
+
+      const height = Math.max(
+        48,
+        Math.ceil(lines * fontSize * 1.14),
+      );
+
+      const row = {
+        item,
+        text,
+        y,
+        height,
+      };
+
+      y += height + 9;
+
       return row;
     });
-  }, [active, baseFontSize, lineGap, settings.listY]);
+  }, [
+    active,
+    fontSize,
+    settings.list.width,
+  ]);
 
-  const contentBottom = rows.length ? rows[rows.length - 1].y + rows[rows.length - 1].height : settings.listY + 95;
-  const maxBottom = 1205;
-  const overflow = Math.max(0, contentBottom - maxBottom);
-  const adjustedY = settings.listY - overflow;
-  const panelHeight = Math.min(885, Math.max(145, contentBottom - settings.listY + 40));
+  const listContentHeight = useMemo(() => {
+    if (rows.length === 0) {
+      return 130;
+    }
+
+    const lastRow = rows[rows.length - 1];
+
+    // Нижняя координата последней строки + нижний внутренний отступ.
+    return lastRow.y + lastRow.height + 28;
+  }, [rows]);
+
+  const patchElement = (
+    key: ElementKey,
+    patch: Partial<CanvasElementSettings>,
+  ) => {
+    onSettingsChange({
+      ...settings,
+      [key]: {
+        ...settings[key],
+        ...patch,
+      },
+    });
+  };
+
+  const bind = (key: ElementKey) => ({
+    draggable: true,
+
+    onClick: () => setSelected(key),
+    onTap: () => setSelected(key),
+
+    onDragEnd: (event: any) => {
+      patchElement(key, {
+        x: event.target.x(),
+        y: event.target.y(),
+      });
+    },
+
+    onTransformEnd: () => {
+      const node = refs[key].current;
+
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+
+      const width = Math.max(
+        120,
+        node.width() * scaleX,
+      );
+
+      const height = Math.max(
+        50,
+        node.height() * scaleY,
+      );
+
+      node.scaleX(1);
+      node.scaleY(1);
+
+      if (key === 'list') {
+        patchElement(key, {
+          x: node.x(),
+          y: node.y(),
+          width,
+          height: listContentHeight,
+        });
+
+        return;
+      }
+
+      patchElement(key, {
+        x: node.x(),
+        y: node.y(),
+        width,
+        height,
+      });
+    },
+  });
 
   useEffect(() => {
     const resize = () => {
-      if (!wrapperRef.current) return;
-      setScale(Math.min(wrapperRef.current.clientWidth / WIDTH, 0.72));
+      if (!wrapperRef.current) {
+        return;
+      }
+
+      setScale(
+        Math.min(
+          wrapperRef.current.clientWidth / WIDTH,
+          0.75,
+        ),
+      );
     };
+
     resize();
+
     const observer = new ResizeObserver(resize);
-    if (wrapperRef.current) observer.observe(wrapperRef.current);
+
+    if (wrapperRef.current) {
+      observer.observe(wrapperRef.current);
+    }
+
     return () => observer.disconnect();
   }, []);
 
   return (
-    <div className="canvas-wrap" ref={wrapperRef}>
-      <Stage ref={stageRef} width={WIDTH * scale} height={HEIGHT * scale} scaleX={scale} scaleY={scale}>
+    <div
+      className="canvas-wrap"
+      ref={wrapperRef}
+    >
+      <div className="canvas-tip">
+        Нажмите на блок, затем двигайте или растягивайте за маркеры
+      </div>
+
+      <Stage
+        ref={stageRef}
+        width={WIDTH * scale}
+        height={HEIGHT * scale}
+        scaleX={scale}
+        scaleY={scale}
+        onMouseDown={(event: any) => {
+          if (event.target === event.target.getStage()) {
+            setSelected(null);
+          }
+        }}
+        onTouchStart={(event: any) => {
+          if (event.target === event.target.getStage()) {
+            setSelected(null);
+          }
+        }}
+      >
         <Layer>
-          <KonvaImage image={image} width={WIDTH} height={HEIGHT} />
-          <Rect x={230} y={45} width={620} height={115} fill={settings.plateColor} cornerRadius={25} />
-          <Text x={270} y={72} width={540} text="Цены индейка 🦃" fontSize={53} fontStyle="bold italic" fill="white" align="center" />
+          <KonvaImage
+            image={image}
+            width={WIDTH}
+            height={HEIGHT}
+          />
 
-          <Rect x={35} y={adjustedY - 20} width={950} height={panelHeight} fill="white" opacity={0.96} cornerRadius={20} />
-          <Text x={CONTENT_X} y={adjustedY} width={CONTENT_WIDTH} text={title} fontSize={titleFontSize} fontStyle={fontStyle} fill="#111" wrap="word" />
+          {/* Main title */}
+          <Group
+            ref={refs.title}
+            x={settings.title.x}
+            y={settings.title.y}
+            width={settings.title.width}
+            height={settings.title.height}
+            {...bind('title')}
+          >
+            <Rect
+              width={settings.title.width}
+              height={settings.title.height}
+              fill={settings.plateColor}
+              cornerRadius={26}
+            />
 
-          {rows.map(({ item, text, y, height }) => (
             <Text
-              key={item.id}
-              x={78}
-              y={y - overflow}
-              width={865}
-              height={height + 4}
-              text={text}
-              fontSize={baseFontSize}
+              x={24}
+              y={0}
+              width={settings.title.width - 48}
+              height={settings.title.height}
+              text="Цены индейка 🦃"
+              fontFamily="Arial"
+              fontSize={51}
+              fontStyle="bold italic"
+              fill="white"
+              align="center"
+              verticalAlign="middle"
+              wrap="none"
+            />
+          </Group>
+
+          <Selection
+            selected={selected === 'title'}
+            nodeRef={refs.title}
+          />
+
+          {/* Product list */}
+          <Group
+            ref={refs.list}
+            x={settings.list.x}
+            y={settings.list.y}
+            width={settings.list.width}
+            height={listContentHeight}
+            {...bind('list')}
+          >
+            <Rect
+              width={settings.list.width}
+              height={listContentHeight}
+              fill="white"
+              opacity={0.96}
+              cornerRadius={18}
+            />
+
+            <Text
+              x={30}
+              y={22}
+              width={settings.list.width - 60}
+              text={titleText}
+              fontFamily="Arial"
+              fontSize={titleFontSize}
               fontStyle={fontStyle}
               fill="#111"
-              lineHeight={1.16}
-              wrap="word"
             />
-          ))}
 
-          <Rect x={395} y={1235} width={640} height={92} fill={settings.plateColor} cornerRadius={20} />
-          <Text x={425} y={1255} width={580} text={delivery.cities} fontSize={39} fontStyle="bold italic" fill="white" align="center" wrap="word" />
-          <Rect x={620} y={1337} width={415} height={78} fill={settings.plateColor} cornerRadius={18} />
-          <Text x={650} y={1352} width={355} text={delivery.phone} fontSize={39} fontStyle="bold italic" fill="white" align="center" />
+            {rows.map(({
+              item,
+              text,
+              y,
+              height,
+            }) => {
+              /*
+              * Пин привязывается к верхней части первой строки,
+              * а не к математическому центру lineHeight.
+              */
+              const pinX = 38;
+              const pinRadius = 7;
+
+              // Верх кружка будет примерно на одной линии с верхом букв.
+              const pinCenterY = 13;
+
+              // Ножка всегда одинаковая и не зависит от количества строк.
+              const pinStemStartY = pinCenterY + pinRadius - 1;
+              const pinStemEndY = pinStemStartY + 25;
+
+              return (
+                <Group
+                  key={item.id}
+                  y={y}
+                >
+                  <Line
+                    points={[
+                      pinX,
+                      pinStemStartY,
+                      pinX,
+                      pinStemEndY,
+                    ]}
+                    stroke="#8c8c8c"
+                    strokeWidth={3}
+                    lineCap="round"
+                  />
+
+                  <Circle
+                    x={pinX}
+                    y={pinCenterY}
+                    radius={pinRadius}
+                    fill="#e53935"
+                    shadowColor="rgba(90, 0, 0, 0.4)"
+                    shadowBlur={3}
+                    shadowOffsetY={1}
+                  />
+
+                  <Circle
+                    x={pinX - 2.5}
+                    y={pinCenterY - 2.5}
+                    radius={2}
+                    fill="#ffd4d1"
+                  />
+
+                  <Text
+                    x={68}
+                    y={0}
+                    width={settings.list.width - 94}
+                    height={height}
+                    text={text}
+                    fontFamily="Arial"
+                    fontSize={fontSize}
+                    fontStyle={fontStyle}
+                    fill="#111"
+                    lineHeight={1.14}
+                    wrap="word"
+                    verticalAlign="top"
+                  />
+                </Group>
+              );
+            })}
+          </Group>
+
+          <Selection
+            selected={selected === 'list'}
+            nodeRef={refs.list}
+          />
+
+          {/* Cities */}
+          <Group
+            ref={refs.cities}
+            x={settings.cities.x}
+            y={settings.cities.y}
+            width={settings.cities.width}
+            height={settings.cities.height}
+            {...bind('cities')}
+          >
+            <Rect
+              width={settings.cities.width}
+              height={settings.cities.height}
+              fill={settings.plateColor}
+              cornerRadius={20}
+            />
+
+            <Text
+              x={20}
+              y={0}
+              width={settings.cities.width - 40}
+              height={settings.cities.height}
+              text={delivery.cities}
+              fontFamily="Arial"
+              fontSize={38}
+              fontStyle="bold italic"
+              fill="white"
+              align="center"
+              verticalAlign="middle"
+              wrap="none"
+            />
+          </Group>
+
+          <Selection
+            selected={selected === 'cities'}
+            nodeRef={refs.cities}
+          />
+
+          {/* Phone */}
+          <Group
+            ref={refs.phone}
+            x={settings.phone.x}
+            y={settings.phone.y}
+            width={settings.phone.width}
+            height={settings.phone.height}
+            {...bind('phone')}
+          >
+            <Rect
+              width={settings.phone.width}
+              height={settings.phone.height}
+              fill={settings.plateColor}
+              cornerRadius={18}
+            />
+
+            <Text
+              x={18}
+              y={0}
+              width={settings.phone.width - 36}
+              height={settings.phone.height}
+              text={delivery.phone}
+              fontFamily="Arial"
+              fontSize={38}
+              fontStyle="bold italic"
+              fill="white"
+              align="center"
+              verticalAlign="middle"
+              wrap="none"
+            />
+          </Group>
+
+          <Selection
+            selected={selected === 'phone'}
+            nodeRef={refs.phone}
+          />
         </Layer>
       </Stage>
     </div>
