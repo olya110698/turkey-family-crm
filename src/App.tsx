@@ -524,9 +524,12 @@ function Promotions({ promotions, setPromotions, addPromotion }: any) {
           <article className="promotion-card" key={promotion.id}>
             <div className="promotion-card-head">
               <label className="promotion-active">
-                <span>Активна</span>
+                <span>
+                  {promotion.active ? "Активна" : "Неактивна"}
+                </span>
 
                 <input
+                  className="promotion-switch-input"
                   type="checkbox"
                   checked={promotion.active}
                   onChange={(event) =>
@@ -535,6 +538,13 @@ function Promotions({ promotions, setPromotions, addPromotion }: any) {
                     })
                   }
                 />
+
+                <span
+                  className="promotion-switch"
+                  aria-hidden="true"
+                >
+                  <span className="promotion-switch-thumb" />
+                </span>
               </label>
 
               <button
