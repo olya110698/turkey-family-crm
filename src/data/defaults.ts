@@ -1,4 +1,9 @@
-import type { DeliverySettings, Product, Promotion } from '../types';
+import type {
+  DeliverySettings,
+  GeneratorSettings,
+  Product,
+  Promotion,
+} from "../types";
 
 const id = () => crypto.randomUUID();
 
@@ -25,12 +30,28 @@ export const defaultProducts: Product[] = [
 ];
 
 export const defaultDelivery: DeliverySettings = {
-  cities: 'Чисть, Молодечно, Минск',
-  phone: '+375447256661',
-  details: 'Доставка по согласованию. Заказы принимаются по телефону.',
-  deliverySurcharge: '1',
+  cities: "Чисть, Молодечно, Минск",
+  phone: "+375447256661",
+  details: "Доставка по согласованию. Заказы принимаются по телефону.",
+  deliverySurcharge: "1",
 };
 
 export const defaultPromotions: Promotion[] = [
-  { id: id(), title: 'Семейный заказ', description: 'Скидка 5% при заказе от 100 руб.', active: false },
+  {
+    id: id(),
+    title: "Семейный заказ",
+    description: "Скидка 5% при заказе от 100 руб.",
+    active: false,
+  },
 ];
+
+export const defaultGenerator: GeneratorSettings = {
+  plateColor: "#fa5045",
+  textStyle: "italic",
+  fontScale: 92,
+  backgroundImage: "",
+  title: { x: 230, y: 52, width: 620, height: 112 },
+  list: { x: 36, y: 282, width: 948, height: 690 },
+  cities: { x: 394, y: 1237, width: 642, height: 91 },
+  phone: { x: 620, y: 1338, width: 416, height: 76 },
+};
