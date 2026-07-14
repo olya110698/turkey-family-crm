@@ -15,91 +15,141 @@ export function Prices({
   deleteProduct,
 }: Props) {
   return (
-    <div className="stack">
-      {(["raw", "ready"] as const).map((category) => (
-        <section className="card" key={category}>
-          <div className="section-head">
-            <div>
-              <span className="eyebrow">Категория</span>
+    <div className="stack prices-page">
+      {(["raw", "ready"] as const).map((category) => {
+        const categoryProducts = products.filter(
+          (product) => product.category === category,
+        );
 
-              <h2>
-                {category === "raw" ? "Сырая продукция" : "Готовая продукция"}
-              </h2>
+        return (
+          <section
+            className="card prices-category"
+            key={category}
+          >
+            <div className="section-head prices-section-head">
+              <div>
+                <span className="eyebrow">
+                  Категория
+                </span>
+
+                <h2>
+                  {category === "raw"
+                    ? "Сырая продукция"
+                    : "Готовая продукция"}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                className="secondary prices-add-button"
+                onClick={() => addProduct(category)}
+              >
+                <Plus size={17} />
+                Добавить
+              </button>
             </div>
 
-            <button className="secondary" onClick={() => addProduct(category)}>
-              <Plus size={17} />
-              Добавить
-            </button>
-          </div>
+            <div className="table-wrap prices-table-wrap">
+              <table className="prices-table">
+                <thead>
+                  <tr>
+                    <th>Вкл.</th>
+                    <th>Название</th>
+                    <th>Цена</th>
+                    <th>Единица</th>
+                    <th className="actions-column">
+                      Действия
+                    </th>
+                  </tr>
+                </thead>
 
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Вкл.</th>
-                  <th>Название</th>
-                  <th>Цена</th>
-                  <th>Единица</th>
-                  <th className="actions-column">Действия</th>
-                </tr>
-              </thead>
+                <tbody>
+                  {categoryProducts.map((product) => (
+                    <tr
+                      className="price-product-row"
+                      key={product.id}
+                    >
+                      <td
+                        className="price-active-cell"
+                        data-label="Показывать"
+                      >
+                        <label className="price-active-control">
+                          <span className="price-mobile-label">
+                            Показывать в прайсе
+                          </span>
 
-              <tbody>
-                {products
-                  .filter((product) => product.category === category)
-                  .map((product) => (
-                    <tr key={product.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={product.active}
-                          onChange={(event) =>
-                            updateProduct(product.id, {
-                              active: event.target.checked,
-                            })
-                          }
-                        />
+                          <input
+                            type="checkbox"
+                            checked={product.active}
+                            onChange={(event) =>
+                              updateProduct(product.id, {
+                                active: event.target.checked,
+                              })
+                            }
+                          />
+                        </label>
                       </td>
 
-                      <td>
-                        <input
-                          value={product.name}
-                          onChange={(event) =>
-                            updateProduct(product.id, {
-                              name: event.target.value,
-                            })
-                          }
-                        />
+                      <td data-label="Название">
+                        <label className="price-mobile-field">
+                          <span className="price-mobile-label">
+                            Название
+                          </span>
+
+                          <input
+                            value={product.name}
+                            aria-label="Название товара"
+                            onChange={(event) =>
+                              updateProduct(product.id, {
+                                name: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
                       </td>
 
-                      <td>
-                        <input
-                          className="price-input"
-                          value={product.price}
-                          onChange={(event) =>
-                            updateProduct(product.id, {
-                              price: event.target.value,
-                            })
-                          }
-                        />
+                      <td data-label="Цена">
+                        <label className="price-mobile-field">
+                          <span className="price-mobile-label">
+                            Цена
+                          </span>
+
+                          <input
+                            className="price-input"
+                            value={product.price}
+                            inputMode="decimal"
+                            aria-label="Цена товара"
+                            onChange={(event) =>
+                              updateProduct(product.id, {
+                                price: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
                       </td>
 
-                      <td>
-                        <input
-                          value={product.unit}
-                          onChange={(event) =>
-                            updateProduct(product.id, {
-                              unit: event.target.value,
-                            })
-                          }
-                        />
+                      <td data-label="Единица">
+                        <label className="price-mobile-field">
+                          <span className="price-mobile-label">
+                            Единица
+                          </span>
+
+                          <input
+                            value={product.unit}
+                            aria-label="Единица измерения"
+                            onChange={(event) =>
+                              updateProduct(product.id, {
+                                unit: event.target.value,
+                              })
+                            }
+                          />
+                        </label>
                       </td>
 
                       <td className="actions-cell">
                         <button
                           type="button"
-                          className="delete-button"
+                          className="delete-button price-delete-button"
                           title={`Удалить ${product.name}`}
                           aria-label={`Удалить ${product.name}`}
                           onClick={() => deleteProduct(product.id)}
@@ -110,11 +160,18 @@ export function Prices({
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ))}
+                </tbody>
+              </table>
+            </div>
+
+            {categoryProducts.length === 0 && (
+              <div className="empty-state">
+                В этой категории пока нет товаров.
+              </div>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }

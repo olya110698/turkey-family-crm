@@ -7,14 +7,10 @@ import {
   ChevronRight,
   ClipboardList,
   Cloud,
-  LogIn,
-  LogOut,
   Menu,
   Package,
-  Plus,
   Settings,
   ShoppingBasket,
-  Trash2,
   Truck,
   X,
 } from "lucide-react";
@@ -36,12 +32,15 @@ import type {
   ProductCategory,
   Promotion,
 } from "./types";
+import { Analytics } from "./components/Analytics";
 import { Dashboard } from "./components/Dashboard";
 import { Delivery } from "./components/Delivery";
 import { Generator } from "./components/Generator";
+import { History } from "./components/History";
 import { Prices } from "./components/Prices";
-import { Stat } from "./components/Stat";
-import { money } from "./utils";
+import { Promotions } from "./components/Promotions";
+import { SettingsPage } from "./components/SettingsPage";
+import { Stock } from "./components/Stock";
 import "./styles.css";
 
 export type Section =
@@ -204,6 +203,16 @@ export default function App() {
         active: true,
       },
     ]);
+  const addPromotion = () =>
+    setPromotions((p) => [
+      ...p,
+      {
+        id: crypto.randomUUID(),
+        title: "Новая акция",
+        description: "",
+        active: false,
+      },
+    ]);
   const deleteProduct = (id: string) => {
     const product = products.find((item) => item.id === id);
 
@@ -343,7 +352,11 @@ export default function App() {
             <Stock products={products} updateProduct={updateProduct} />
           )}
           {section === "promotions" && (
-            <Promotions promotions={promotions} setPromotions={setPromotions} />
+            <Promotions
+              promotions={promotions}
+              setPromotions={setPromotions}
+              addPromotion={addPromotion}
+            />
           )}
           {section === "settings" && (
             <SettingsPage session={session} notify={notify} />
@@ -355,312 +368,5 @@ export default function App() {
         <div className="backdrop" onClick={() => setMenuOpen(false)} />
       )}
     </div>
-  );
-}
-
-function History({ history }: any) {
-  return (
-    <section className="card">
-      <span className="eyebrow">Архив</span>
-      <h2>История цен</h2>
-      {history.map((h: PriceHistoryEntry) => (
-        <div className="history-item" key={h.id}>
-          <div>
-            <strong>{h.productName}</strong>
-            <span>{new Date(h.changedAt).toLocaleString("ru-RU")}</span>
-          </div>
-          <p>
-            <s>{money(h.oldPrice)}</s>
-            <b>{money(h.newPrice)}</b>
-          </p>
-        </div>
-      ))}
-    </section>
-  );
-}
-function Analytics({ products, history }: any) {
-  const raw = products.filter((p: Product) => p.category === "raw").length,
-    ready = products.length - raw,
-    avg = (
-      products.reduce(
-        (s: number, p: Product) =>
-          s + (parseFloat(p.price.replace(",", ".")) || 0),
-        0,
-      ) / Math.max(products.length, 1)
-    ).toFixed(1);
-  return (
-    <div className="stack">
-      <section className="stats-grid">
-        <Stat label="Сырая продукция" value={raw} note="позиций" icon="🥩" />
-        <Stat
-          label="Готовая продукция"
-          value={ready}
-          note="позиций"
-          icon="🍲"
-        />
-        <Stat label="Средняя цена" value={avg} note="рублей" icon="💰" />
-        <Stat
-          label="Правок цен"
-          value={history.length}
-          note="за всё время"
-          icon="✏️"
-        />
-      </section>
-      <section className="card">
-        <span className="eyebrow">Динамика</span>
-        <h2>Последние изменения</h2>
-        <div className="bars">
-          {history
-            .slice(0, 12)
-            .reverse()
-            .map((h: PriceHistoryEntry) => (
-              <div className="bar-row" key={h.id}>
-                <span>{h.productName}</span>
-                <div>
-                  <i
-                    style={{
-                      width: `${Math.min(100, (parseFloat(h.newPrice.replace(",", ".")) || 1) * 2.2)}%`,
-                    }}
-                  />
-                </div>
-                <b>{h.newPrice}</b>
-              </div>
-            ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-function Stock({ products, updateProduct }: any) {
-  return (
-    <section className="card">
-      <span className="eyebrow">Склад</span>
-      <h2>Остатки</h2>
-      <div className="stock-grid">
-        {products.map((p: Product) => (
-          <div
-            className={
-              p.stock <= p.lowStockAt ? "stock-card low" : "stock-card"
-            }
-            key={p.id}
-          >
-            <strong>{p.name}</strong>
-            <span>{p.category === "raw" ? "Сырая" : "Готовая"}</span>
-            <label>
-              Количество
-              <input
-                type="number"
-                value={p.stock}
-                onChange={(e) =>
-                  updateProduct(p.id, { stock: Number(e.target.value) })
-                }
-              />
-            </label>
-            <label>
-              Минимум
-              <input
-                type="number"
-                value={p.lowStockAt}
-                onChange={(e) =>
-                  updateProduct(p.id, { lowStockAt: Number(e.target.value) })
-                }
-              />
-            </label>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-function Promotions({ promotions, setPromotions, addPromotion }: any) {
-  const updatePromotion = (id: string, patch: Record<string, unknown>) => {
-    setPromotions((items: any[]) =>
-      items.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              ...patch,
-            }
-          : item,
-      ),
-    );
-  };
-
-  const deletePromotion = (id: string) => {
-    const promotion = promotions.find((item: any) => item.id === id);
-
-    if (!promotion) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Удалить акцию «${promotion.title || "Без названия"}»?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setPromotions((items: any[]) => items.filter((item) => item.id !== id));
-  };
-
-  return (
-    <section className="card">
-      <div className="section-head">
-        <div>
-          <span className="eyebrow">Маркетинг</span>
-
-          <h2>Акции</h2>
-        </div>
-
-        <button type="button" className="secondary" onClick={addPromotion}>
-          <Plus size={17} />
-          Добавить
-        </button>
-      </div>
-
-      <div className="promotion-grid">
-        {promotions.map((promotion: any) => (
-          <article className="promotion-card" key={promotion.id}>
-            <div className="promotion-card-head">
-              <label className="promotion-active">
-                <span>
-                  {promotion.active ? "Активна" : "Неактивна"}
-                </span>
-
-                <input
-                  className="promotion-switch-input"
-                  type="checkbox"
-                  checked={promotion.active}
-                  onChange={(event) =>
-                    updatePromotion(promotion.id, {
-                      active: event.target.checked,
-                    })
-                  }
-                />
-
-                <span
-                  className="promotion-switch"
-                  aria-hidden="true"
-                >
-                  <span className="promotion-switch-thumb" />
-                </span>
-              </label>
-
-              <button
-                type="button"
-                className="delete-icon-button"
-                title={`Удалить акцию ${promotion.title}`}
-                aria-label={`Удалить акцию ${promotion.title}`}
-                onClick={() => deletePromotion(promotion.id)}
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
-
-            <input
-              value={promotion.title}
-              placeholder="Название акции"
-              onChange={(event) =>
-                updatePromotion(promotion.id, {
-                  title: event.target.value,
-                })
-              }
-            />
-
-            <textarea
-              value={promotion.description}
-              placeholder="Описание акции"
-              onChange={(event) =>
-                updatePromotion(promotion.id, {
-                  description: event.target.value,
-                })
-              }
-            />
-          </article>
-        ))}
-      </div>
-
-      {promotions.length === 0 && (
-        <div className="empty-state">
-          Акций пока нет. Нажмите «Добавить», чтобы создать первую.
-        </div>
-      )}
-    </section>
-  );
-}
-function SettingsPage({
-  session,
-  notify,
-}: {
-  session: Session | null;
-  notify: (s: string) => void;
-}) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const signIn = async () => {
-    if (!supabase) return;
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    error ? notify(error.message) : notify("Вход выполнен");
-  };
-  const signOut = async () => {
-    await supabase?.auth.signOut();
-    notify("Вы вышли");
-  };
-  return (
-    <section className="card form-card">
-      <span className="eyebrow">Облако</span>
-      <h2>Синхронизация и вход</h2>
-      {!supabaseEnabled ? (
-        <div className="notice">
-          <Cloud />
-          <div>
-            <strong>Supabase ещё не подключён</strong>
-            <p>
-              Добавьте VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY в Vercel.
-              Инструкция и SQL лежат в проекте.
-            </p>
-          </div>
-        </div>
-      ) : session ? (
-        <>
-          <div className="notice success">
-            <Cloud />
-            <div>
-              <strong>Вход выполнен</strong>
-              <p>{session.user.email}</p>
-            </div>
-          </div>
-          <button className="secondary" onClick={signOut}>
-            <LogOut size={18} /> Выйти
-          </button>
-        </>
-      ) : (
-        <>
-          <label>
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <label>
-            Пароль
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </label>
-          <button className="primary" onClick={signIn}>
-            <LogIn size={18} /> Войти
-          </button>
-        </>
-      )}
-    </section>
   );
 }

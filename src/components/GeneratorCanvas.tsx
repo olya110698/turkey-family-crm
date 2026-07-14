@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Circle,
   Group,
@@ -112,7 +118,8 @@ export function GeneratorCanvas({
     'anonymous',
   );
 
-  const [scale, setScale] = useState(0.52);
+  const [scale, setScale] = useState(1);
+  const [isScaleReady, setIsScaleReady] = useState(false);
   const [selected, setSelected] = useState<ElementKey | null>(null);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -260,40 +267,108 @@ export function GeneratorCanvas({
     },
   });
 
-  useEffect(() => {
-    const resize = () => {
-      if (!wrapperRef.current) {
-        return;
-      }
+  useLayoutEffect(() => {
+    const wrapper = wrapperRef.current;
 
-      setScale(
-        Math.min(
-          wrapperRef.current.clientWidth / WIDTH,
+    if (!wrapper) {
+      return;
+    }
+
+    /*
+    * Измеряем родительскую preview-card, а не сам canvas-wrap.
+    * Размер Stage больше не сможет влиять на измеряемую ширину.
+    */
+    const sizeSource = wrapper.parentElement;
+
+    if (!sizeSource) {
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const resize = () => {
+      cancelAnimationFrame(animationFrame);
+
+      animationFrame = requestAnimationFrame(() => {
+        const parentRect = sizeSource.getBoundingClientRect();
+        const wrapperStyles = window.getComputedStyle(wrapper);
+
+        const horizontalPadding =
+          Number.parseFloat(wrapperStyles.paddingLeft || "0")
+          + Number.parseFloat(wrapperStyles.paddingRight || "0");
+
+        /*
+        * На мобильном visualViewport точнее window.innerWidth,
+        * особенно при масштабировании браузера.
+        */
+        const viewportWidth =
+          window.visualViewport?.width
+          ?? document.documentElement.clientWidth
+          ?? window.innerWidth;
+
+        /*
+        * Не позволяем Canvas быть шире ни карточки,
+        * ни фактической ширины экрана.
+        */
+        const availableWidth = Math.max(
+          1,
+          Math.min(parentRect.width, viewportWidth) - horizontalPadding,
+        );
+
+        const nextScale = Math.min(
+          availableWidth / WIDTH,
           0.75,
-        ),
-      );
+        );
+
+        setScale((currentScale) => {
+          /*
+          * Защита от бесконечных микроскопических обновлений
+          * из-за дробных пикселей браузера.
+          */
+          if (Math.abs(currentScale - nextScale) < 0.001) {
+            return currentScale;
+          }
+
+          return nextScale;
+        });
+
+        setIsScaleReady(true);
+      });
     };
 
     resize();
 
     const observer = new ResizeObserver(resize);
+    observer.observe(sizeSource);
 
-    if (wrapperRef.current) {
-      observer.observe(wrapperRef.current);
-    }
+    window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
 
-    return () => observer.disconnect();
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+
+      window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
+    };
   }, []);
 
   return (
-    <div
-      className="canvas-wrap"
-      ref={wrapperRef}
-    >
-      <div className="canvas-tip">
-        Нажмите на блок, затем двигайте или растягивайте за маркеры
-      </div>
+  <div
+    className={`canvas-wrap ${isScaleReady ? "canvas-ready" : ""}`}
+    ref={wrapperRef}
+  >
+    <div className="canvas-tip">
+      Нажмите на блок, затем двигайте или растягивайте за маркеры
+    </div>
 
+    <div
+      className="canvas-stage-container"
+      style={{
+        width: WIDTH * scale,
+        height: HEIGHT * scale,
+      }}
+    >
       <Stage
         ref={stageRef}
         width={WIDTH * scale}
@@ -537,5 +612,6 @@ export function GeneratorCanvas({
         </Layer>
       </Stage>
     </div>
-  );
+  </div>
+);
 }
